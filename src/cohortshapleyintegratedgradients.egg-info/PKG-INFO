@@ -1,0 +1,9 @@
+Metadata-Version: 2.1
+Name: cohortshapleyintegratedgradients
+Version: 0.1.0
+Summary: Cohort Shapley Integrated Gradients
+Author-email: Naofumi Hama <naofumi.hama.hd@hitachi.com>
+Project-URL: Homepage, https://github.com/cohortshapley/cohortshapleyintegratedgradients
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown

@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=62.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cohortshapleyintegratedgradients"
+version = "0.1.0"
+description = "Cohort Shapley Integrated Gradients"
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "torch", "numpy", "shap","tqdm"
+]
+authors = [
+  { name="Naofumi Hama", email="naofumi.hama.hd@hitachi.com" },
+]
+
+[project.urls]
+"Homepage" = "https://github.com/cohortshapley/cohortshapleyintegratedgradients"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
