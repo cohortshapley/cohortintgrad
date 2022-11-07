@@ -3,7 +3,7 @@ requires = ["setuptools>=62.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cohortshapleyintegratedgradients"
+name = "cohortintgrad"
 version = "0.1.0"
 description = "Cohort Shapley Integrated Gradients"
 readme = "README.md"
@@ -20,7 +20,7 @@ authors = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/cohortshapley/cohortshapleyintegratedgradients"
+"Homepage" = "https://github.com/cohortshapley/cohortintgrad"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
