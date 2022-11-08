@@ -18,8 +18,8 @@ And details of the cohort shapley for the [paper](https://arxiv.org/abs/1911.004
 # Install
 Install the package locally with pip command.
 ```bash
-git clone https://github.com/cohortshapley/cohortshapleyintegratedgradients
-pip install -e cohortshapleyintegratedgradients
+git clone https://github.com/cohortshapley/cohortintgrad
+pip install -e cohortintgrad
 ```
 
 ## Prerequisites

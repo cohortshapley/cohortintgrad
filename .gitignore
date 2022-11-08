@@ -34,3 +34,4 @@ multirun/
 *npz*
 *npy*
 .mypy_cache/
+*.egg-info/
