@@ -1,1 +1,1 @@
-from cohortshapleyintegratedgradients.igcs import *
+from cohortintgrad.igcs import *
