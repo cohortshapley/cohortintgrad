@@ -1,10 +1,10 @@
-# Cohort Shapley Integrated Gradients
-Cohort Shapley Integrated Gradients (CSIG) is a calculation method of local feature attribution
+# Integrated Gradient Cohort Shapley
+Integrated Gradient Cohort Shapley (IGCS) is a calculation method of local feature attribution
 that apply multilinear extensions which make integrated gradients equivalent to Shapley values in an original space to the space of
 indicator functions, not to data space.
 Then it introduces integrated gradients on the indicator space. Our method is based on empirical distribution
 similar to Cohort Shapley (CS), and can evaluate feature attributions with a linear complexity
-to the number of features. In addition, CSIG does not require any differentiability on the model nor other assumptions, since line integrals of CSIG
+to the number of features. In addition, IGCS does not require any differentiability on the model nor other assumptions, since line integrals of IGCS
 are held in the indicator space.
 
 
