@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cohortintgrad"
 version = "0.1.0"
-description = "Cohort Shapley Integrated Gradients"
+description = "Integrated Gradient Cohort Shapley"
 readme = "README.md"
 license = {file = "LICENSE"}
 classifiers = [
