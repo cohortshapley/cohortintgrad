@@ -9,7 +9,8 @@ are held in the indicator space.
 
 
 
-See the [paper]():
+See the [paper](https://arxiv.org/abs/2211.08414):
+> Hama, N., Mase, M., and Owen, A. B. (2022). Model free shapley values for high dimensional data. arXiv preprint arXiv:2211.08414.
 
 And details of the cohort shapley for the [paper](https://arxiv.org/abs/1911.00467):
 > Mase, M., Owen, A. B., & Seiler, B. (2019). Explaining black box decisions by Shapley cohort refinement. arXiv preprint arXiv:1911.00467.
