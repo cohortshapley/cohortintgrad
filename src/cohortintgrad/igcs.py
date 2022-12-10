@@ -40,12 +40,12 @@ class CohortIntGrad:
         """jth element of multiplication in s_z(x_i)
 
         Args:
-            zj (torch.Tensor): z_j
+            zj (torch.Tensor): jth elements of z
             xij (torch.Tensor): jth element of x_i
             xtj (torch.Tensor): jth element of x_t
 
         Returns:
-            torch.Tensor: 1 + z_j (S_j(x_i)-1)
+            torch.Tensor: 1 + z_j (S_j(x_i)-1): shape is (num_feat, num_cohort)
         """
         sim = self._similarity(xij, xtj).to(device)
         y = torch.mul(zj.reshape(-1, 1), (sim - 1).reshape(1, -1)) + 1
@@ -56,7 +56,7 @@ class CohortIntGrad:
         """boolean similarity S_j(x_i)
 
         Args:
-            xij (torch.Tensor): jth element of x_i
+            xij (torch.Tensor): jth element of x_i in the cohort
             xtj (torch.Tensor): jth element of x_t
 
         Returns:
@@ -74,7 +74,7 @@ class CohortIntGrad:
             z (torch.Tensor): coordinate in the cube
 
         Returns:
-            torch.Tensor: s_z(x_i) = \Prod (1 + z_j (S_j(x_i)-1))
+            torch.Tensor: s_z(x_i) = Prod (1 + z_j (S_j(x_i)-1))
         """
         m = [
             self._sjw(z[:, i], self.x[:, i], self.x[t_id, i])
