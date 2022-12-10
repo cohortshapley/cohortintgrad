@@ -249,3 +249,150 @@ def test_remaining_delta_degenerated():
         # when there are completely similar data to the target, the target value in the summation rule is modified to their average
     )
     np.testing.assert_allclose(rd, content, rtol=0.01)
+
+
+def test_igcs_stack(ref, ref_t):
+    IG = csig.CohortIntGrad(ref.to(device), ref_t.to(device), ratio=0.1, n_step=500)
+    ig, rd = IG.igcs_stack(list(range(4)))
+    analytic_30 = 3 / 7 + 2 / (7 * np.sqrt(7)) * (
+        np.arctan(1 / np.sqrt(7)) - np.arctan(5 / np.sqrt(7))
+    )  # analytic result
+    analytic_31 = 4 / 7 - 2 / (7 * np.sqrt(7)) * (
+        np.arctan(1 / np.sqrt(7)) - np.arctan(5 / np.sqrt(7))
+    )  # analytic result
+    analytic_10 = 1 / 7 - 10 / (7 * np.sqrt(7)) * (
+        np.pi / 2 - np.arctan(3 / np.sqrt(7))
+    )
+    np.testing.assert_allclose(
+        [
+            [-1 / 2, -1 / 2],
+            [analytic_10, -analytic_10],
+            [1 / 2, -1 / 2],
+            [analytic_30, analytic_31],
+        ],
+        ig.to("cpu").detach().numpy(),
+        rtol=0.01,
+    )
+
+
+def test_igcs_stack_rd(ref, ref_t):
+    IG = csig.CohortIntGrad(ref.to(device), ref_t.to(device), ratio=0.1, n_step=500)
+    ig, rd = IG.igcs_stack(list(range(4)))
+    np.testing.assert_allclose(
+        np.zeros((1, 4)), rd.to("cpu").detach().numpy(), atol=0.01
+    )
+
+
+def test_predict_ks(ref, ref_t):
+    IG = csig.CohortIntGrad(ref.to(device), ref_t.to(device), ratio=0.1, n_step=500)
+    predict_ks = IG._predict_ks(binary_vectors=[[0, 0], [0, 1], [1, 0], [1, 1]], t_id=3)
+    average_00 = np.average([ref_t[0], ref_t[1], ref_t[2], ref_t[3]])
+    average_10 = np.average([ref_t[2], ref_t[3]])
+    average_01 = np.average([ref_t[3]])
+    average_11 = np.average([ref_t[3]])
+    np.testing.assert_allclose(
+        [average_00, average_01, average_10, average_11], predict_ks, rtol=0.01
+    )
+
+
+def test_cs(ref, ref_t):
+    IG = csig.CohortIntGrad(ref.to(device), ref_t.to(device), ratio=0.1, n_step=500)
+    cs = np.vstack([IG.cohort_kernel_shap(t_id=i) for i in range(4)])
+    average_00 = np.average([ref_t[0], ref_t[1], ref_t[2], ref_t[3]])
+    average10 = list()
+    average01 = list()
+    average11 = list()
+
+    average10.append(np.average([ref_t[0], ref_t[1]]))
+    average01.append(np.average([ref_t[0], ref_t[2]]))
+    average11.append(np.average([ref_t[0]]))
+    average10.append(np.average([ref_t[0], ref_t[1]]))
+    average01.append(np.average([ref_t[1]]))
+    average11.append(np.average([ref_t[1]]))
+    average10.append(np.average([ref_t[2], ref_t[3]]))
+    average01.append(np.average([ref_t[0], ref_t[2]]))
+    average11.append(np.average([ref_t[2]]))
+    average10.append(np.average([ref_t[2], ref_t[3]]))
+    average01.append(np.average([ref_t[3]]))
+    average11.append(np.average([ref_t[3]]))
+
+    average10 = np.hstack(average10)  # array of average at z=(1,0)
+    average01 = np.hstack(average01)  # array of average at z=(0,1)
+    average11 = np.hstack(average11)  # array of average at z=(1,1)
+
+    cs_explicit = np.vstack(
+        [
+            np.average(
+                np.vstack([average10 - average_00, average11 - average01]), axis=0
+            ),
+            np.average(
+                np.vstack([average01 - average_00, average11 - average10]), axis=0
+            ),
+        ]
+    ).T  # explicit averaging
+
+    np.testing.assert_allclose(cs_explicit, cs, rtol=0.01)
+
+
+def test_perm_cs(ref, ref_t):
+    IG = csig.CohortIntGrad(ref.to(device), ref_t.to(device), ratio=0.1, n_step=500)
+    cs = np.vstack(
+        [IG.cohort_permutation_shap(t_id=i, max_evals=5) for i in range(4)]
+    )  # least 2 * num_features + 1 = 5 > 2!
+    average_00 = np.average([ref_t[0], ref_t[1], ref_t[2], ref_t[3]])
+    average10 = list()
+    average01 = list()
+    average11 = list()
+
+    average10.append(np.average([ref_t[0], ref_t[1]]))
+    average01.append(np.average([ref_t[0], ref_t[2]]))
+    average11.append(np.average([ref_t[0]]))
+    average10.append(np.average([ref_t[0], ref_t[1]]))
+    average01.append(np.average([ref_t[1]]))
+    average11.append(np.average([ref_t[1]]))
+    average10.append(np.average([ref_t[2], ref_t[3]]))
+    average01.append(np.average([ref_t[0], ref_t[2]]))
+    average11.append(np.average([ref_t[2]]))
+    average10.append(np.average([ref_t[2], ref_t[3]]))
+    average01.append(np.average([ref_t[3]]))
+    average11.append(np.average([ref_t[3]]))
+
+    average10 = np.hstack(average10)  # array of average at z=(1,0)
+    average01 = np.hstack(average01)  # array of average at z=(0,1)
+    average11 = np.hstack(average11)  # array of average at z=(1,1)
+
+    cs_explicit = np.vstack(
+        [
+            np.average(
+                np.vstack([average10 - average_00, average11 - average01]), axis=0
+            ),
+            np.average(
+                np.vstack([average01 - average_00, average11 - average10]), axis=0
+            ),
+        ]
+    ).T  # explicit averaging
+
+    np.testing.assert_allclose(cs_explicit, cs, rtol=0.01)
+
+
+def test_numsim(ref, ref_t):
+    IG = csig.CohortIntGrad(ref.to(device), ref_t.to(device), ratio=0.1, n_step=500)
+    numsim = np.vstack(
+        [IG.num_sim(t_id=i).to("cpu").detach().numpy() for i in range(4)]
+    )
+
+    numsim10 = list()
+    numsim01 = list()
+    numsim10.append(len([ref_t[0], ref_t[1]]))
+    numsim01.append(len([ref_t[0], ref_t[2]]))
+    numsim10.append(len([ref_t[0], ref_t[1]]))
+    numsim01.append(len([ref_t[1]]))
+    numsim10.append(len([ref_t[2], ref_t[3]]))
+    numsim01.append(len([ref_t[0], ref_t[2]]))
+    numsim10.append(len([ref_t[2], ref_t[3]]))
+    numsim01.append(len([ref_t[3]]))
+    numsim10 = np.hstack(numsim10)  # array of number of similar data in first direction
+    numsim01 = np.hstack(numsim01)
+
+    numsim_explicit = np.vstack([numsim10, numsim01]).T
+    np.testing.assert_array_equal(numsim_explicit, numsim)
