@@ -103,7 +103,7 @@ def test_sjw_target(ref, ref_t):
     np.testing.assert_allclose([[0, 0, 1, 1]], sjw_target, rtol=0.01)
 
 
-def test_sjw_mlt_z_once(ref, ref_t):
+def test_sjw_mlt_zj_once(ref, ref_t):
     IG = csig.CohortIntGrad(ref.to(device), ref_t.to(device), ratio=0.1, n_step=500)
     sjw_target = (
         IG._sjw(torch.Tensor([0.0, 1.0]).to(device), ref[:, 0], ref[3, 0])
@@ -117,14 +117,12 @@ def test_sjw_mlt_z_once(ref, ref_t):
 def test_sjw_midpoint(ref, ref_t):
     IG = csig.CohortIntGrad(ref.to(device), ref_t.to(device), ratio=0.1, n_step=500)
     sjw_midpoint = (
-        IG._sjw(torch.Tensor([0.5, 0.5]).to(device), ref[:, 0], ref[3, 0])
+        IG._sjw(torch.Tensor([0.5]).to(device), ref[:, 0], ref[3, 0])
         .to("cpu")
         .detach()
         .numpy()
     )  # 1 + z_j (S_j(x_i)-1) depends on the coordinate z in dissimilar data
-    np.testing.assert_allclose(
-        [[0.5, 0.5, 1, 1], [0.5, 0.5, 1, 1]], sjw_midpoint, rtol=0.01
-    )
+    np.testing.assert_allclose([[0.5, 0.5, 1, 1]], sjw_midpoint, rtol=0.01)
 
 
 def test_sz_origin(ref, ref_t):
@@ -150,7 +148,7 @@ def test_sz_diagonal(ref, ref_t, diagonal):
     sz_diagonal = (
         IG._sz(t_id=3, z=diagonal).to("cpu").detach().numpy()
     )  # soft similarity function sz is a product over features about _sjw
-    # -> vstack of (Hadamard prod of [1-z, 1-z, 1, 1] (test_sjw_target above) and [1-z, 1-z, 1-z, 1]) on diagonal line z1
+    # -> vstack of (Hadamard prod of [1-z, 1-z, 1, 1] (test_sjw_midpoint above) and [1-z, 1-z, 1-z, 1]) on diagonal line z1
     step = diagonal.shape[0] - 1
     sz_true = np.vstack(
         [
@@ -159,3 +157,13 @@ def test_sz_diagonal(ref, ref_t, diagonal):
         ]
     )
     np.testing.assert_allclose(sz_true, sz_diagonal, rtol=0.01)
+
+
+def test_sz_nondiagonal(ref, ref_t):
+    IG = csig.CohortIntGrad(ref.to(device), ref_t.to(device), ratio=0.1, n_step=500)
+    nondiag_z = torch.Tensor([[0, 1], [1.0, 0.0]]).to(device)
+    sz_nondiag = (
+        IG._sz(t_id=3, z=nondiag_z).to("cpu").detach().numpy()
+    )  # the direction whose coordinate is zero contributes as multiplication of one
+    # then it is samne as sjw(zj=1, ref[:, j], ref[3, j])
+    np.testing.assert_allclose([[0, 0, 0, 1], [0, 0, 1, 1]], sz_nondiag, rtol=0.01)
