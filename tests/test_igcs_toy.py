@@ -21,6 +21,18 @@ def ref_t():
     return y
 
 
+@pytest.fixture()
+def diagonal():
+    n_step = 5
+    z = torch.vstack(
+        [
+            torch.arange(0, 1 + 1.0 / n_step, 1.0 / n_step)
+            for _ in range(2)  #: ref.shape[1]
+        ]
+    ).T.to(device)
+    return z
+
+
 def test_igcs_single(ref, ref_t):
     IG = csig.CohortIntGrad(ref.to(device), ref_t.to(device), ratio=0.1, n_step=500)
     igcs_single0 = IG.igcs_single(
@@ -72,28 +84,26 @@ def test_similar_ratio(ref, ref_t):
 def test_sjw_origin(ref, ref_t):
     IG = csig.CohortIntGrad(ref.to(device), ref_t.to(device), ratio=0.1, n_step=500)
     sjw_origin = (
-        IG._sjw(torch.Tensor([0.0, 0.0]).to(device), ref[:, 1], ref[3, 1])
+        IG._sjw(torch.Tensor([0.0]).to(device), ref[:, 1], ref[3, 1])
         .to("cpu")
         .detach()
         .numpy()
     )  # at the origin, 1 + z_j (S_j(x_i)-1) = 1 regardless of similarity
-    np.testing.assert_allclose(
-        np.ones((ref.shape[1], ref.shape[0])), sjw_origin, rtol=0.01
-    )
+    np.testing.assert_allclose(np.ones((1, ref.shape[0])), sjw_origin, rtol=0.01)
 
 
 def test_sjw_target(ref, ref_t):
     IG = csig.CohortIntGrad(ref.to(device), ref_t.to(device), ratio=0.1, n_step=500)
     sjw_target = (
-        IG._sjw(torch.Tensor([1.0, 1.0]).to(device), ref[:, 0], ref[3, 0])
+        IG._sjw(torch.Tensor([1.0]).to(device), ref[:, 0], ref[3, 0])
         .to("cpu")
         .detach()
         .numpy()
     )  # at (1,1) in z, 1 + z_j (S_j(x_i)-1) = 0 in dissimilar element and =1 in similar
-    np.testing.assert_allclose([[0, 0, 1, 1], [0, 0, 1, 1]], sjw_target, rtol=0.01)
+    np.testing.assert_allclose([[0, 0, 1, 1]], sjw_target, rtol=0.01)
 
 
-def test_sjw_nondiagonal_corner(ref, ref_t):
+def test_sjw_mlt_z_once(ref, ref_t):
     IG = csig.CohortIntGrad(ref.to(device), ref_t.to(device), ratio=0.1, n_step=500)
     sjw_target = (
         IG._sjw(torch.Tensor([0.0, 1.0]).to(device), ref[:, 0], ref[3, 0])
@@ -115,3 +125,37 @@ def test_sjw_midpoint(ref, ref_t):
     np.testing.assert_allclose(
         [[0.5, 0.5, 1, 1], [0.5, 0.5, 1, 1]], sjw_midpoint, rtol=0.01
     )
+
+
+def test_sz_origin(ref, ref_t):
+    IG = csig.CohortIntGrad(ref.to(device), ref_t.to(device), ratio=0.1, n_step=500)
+    z = torch.Tensor([[0, 0]]).to(device)
+    sz_origin = (
+        IG._sz(t_id=3, z=z).to("cpu").detach().numpy()
+    )  # soft similarity function sz is a product over features about _sjw, which is always 1 at the origin
+    np.testing.assert_allclose([[1, 1, 1, 1]], sz_origin, rtol=0.01)
+
+
+def test_sz_target(ref, ref_t):
+    IG = csig.CohortIntGrad(ref.to(device), ref_t.to(device), ratio=0.1, n_step=500)
+    z = torch.Tensor([[1, 1]]).to(device)
+    sz_target = (
+        IG._sz(t_id=3, z=z).to("cpu").detach().numpy()
+    )  # soft similarity function sz is a product over features about _sjw -> Hadamard prod of [0, 0, 1, 1] and [0, 0, 0, 1]
+    np.testing.assert_allclose([[0, 0, 0, 1]], sz_target, rtol=0.01)
+
+
+def test_sz_diagonal(ref, ref_t, diagonal):
+    IG = csig.CohortIntGrad(ref.to(device), ref_t.to(device), ratio=0.1, n_step=500)
+    sz_diagonal = (
+        IG._sz(t_id=3, z=diagonal).to("cpu").detach().numpy()
+    )  # soft similarity function sz is a product over features about _sjw
+    # -> vstack of (Hadamard prod of [1-z, 1-z, 1, 1] (test_sjw_target above) and [1-z, 1-z, 1-z, 1]) on diagonal line z1
+    step = diagonal.shape[0] - 1
+    sz_true = np.vstack(
+        [
+            np.array([[(1 - i / step) ** 2, (1 - i / step) ** 2, 1 - i / step, 1]])
+            for i in range(step + 1)
+        ]
+    )
+    np.testing.assert_allclose(sz_true, sz_diagonal, rtol=0.01)
