@@ -167,3 +167,45 @@ def test_sz_nondiagonal(ref, ref_t):
     )  # the direction whose coordinate is zero contributes as multiplication of one
     # then it is samne as sjw(zj=1, ref[:, j], ref[3, j])
     np.testing.assert_allclose([[0, 0, 0, 1], [0, 0, 1, 1]], sz_nondiag, rtol=0.01)
+
+
+def test_sz_typecast(ref, ref_t):
+    IG = csig.CohortIntGrad(
+        ref.to(device), ref_t.half().to(device), ratio=0.1, n_step=500
+    )
+    z = torch.Tensor([[0, 0]]).to(device)
+    sz_origin = IG._sz(t_id=3, z=z)
+    assert sz_origin.dtype == torch.float16
+
+
+def test_nu_typecast(ref, ref_t):
+    IG = csig.CohortIntGrad(
+        ref.to(device), ref_t.half().to(device), ratio=0.1, n_step=500
+    )
+    z = torch.Tensor([[0, 0]]).to(device)
+    nu_origin = IG._nu(t_id=3, z=z)
+    assert nu_origin.dtype == torch.float16
+
+
+def test_nu_diagonal(ref, ref_t, diagonal):  # arbitrary z
+    IG = csig.CohortIntGrad(ref.to(device), ref_t.to(device), ratio=0.1, n_step=500)
+    nu_diagonal = (
+        IG._nu(t_id=3, z=diagonal).to("cpu").detach().numpy()
+    )  # weighted average of ref_t :
+    weighted_average = (
+        (
+            torch.sum(IG._sz(t_id=3, z=diagonal) * ref_t.to("cuda"), axis=1)
+            / torch.sum(IG._sz(t_id=3, z=diagonal), axis=1)
+        )
+        .to("cpu")
+        .detach()
+        .numpy()
+    )
+    np.testing.assert_allclose(weighted_average, nu_diagonal, rtol=0.01)
+
+
+def test_nu_nondiagonal(ref, ref_t):
+    IG = csig.CohortIntGrad(ref.to(device), ref_t.to(device), ratio=0.1, n_step=500)
+    nondiag_z = torch.Tensor([[0, 1], [1.0, 0.0]]).to(device)
+    nu_nondiag = IG._nu(t_id=3, z=nondiag_z).to("cpu").detach().numpy()
+    np.testing.assert_allclose([1 * 2 / 1, (1 + 2) / (1 + 1)], nu_nondiag, rtol=0.01)
