@@ -227,3 +227,25 @@ def test_summand_diagonal(ref, ref_t):
         [np.array([partial1_nu(i / 500), partial2_nu(i / 500)]) for i in range(500 + 1)]
     )
     np.testing.assert_allclose(analytic_result, summand_diagonal, rtol=0.01)
+
+
+def test_remaining_delta(ref, ref_t):
+    IG = csig.CohortIntGrad(ref.to(device), ref_t.to(device), ratio=0.1, n_step=500)
+    rd = IG._remaining_delta(t_id=3, ig=IG.igcs_single(t_id=3)).item()
+    content = (
+        torch.sum(IG.igcs_single(t_id=3)).item() - (ref_t[3] - torch.mean(ref_t)).item()
+    )
+    math.isclose(rd, content, rel_tol=0.01)
+
+
+def test_remaining_delta_degenerated():
+    ref_d = torch.Tensor([[0, 0], [0, 1], [1, 0], [1, 2], [1, 2]])
+    ref_td = torch.Tensor([0, 1, 1, 2, 100])
+    IG = csig.CohortIntGrad(ref_d.to(device), ref_td.to(device), ratio=0.1, n_step=500)
+    rd = IG._remaining_delta(t_id=3, ig=IG.igcs_single(t_id=3)).item()
+    content = (
+        torch.sum(IG.igcs_single(t_id=3)).item()
+        - ((ref_td[3] + ref_td[4]) / 2 - torch.mean(ref_td)).item()
+        # when there are completely similar data to the target, the target value in the summation rule is modified to their average
+    )
+    np.testing.assert_allclose(rd, content, rtol=0.01)
