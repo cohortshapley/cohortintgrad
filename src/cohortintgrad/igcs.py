@@ -37,17 +37,45 @@ class CohortIntGrad:
     def _sjw(
         self, zj: torch.Tensor, xij: torch.Tensor, xtj: torch.Tensor
     ) -> torch.Tensor:
+        """jth element of multiplication in s_z(x_i)
+
+        Args:
+            zj (torch.Tensor): z_j
+            xij (torch.Tensor): jth element of x_i
+            xtj (torch.Tensor): jth element of x_t
+
+        Returns:
+            torch.Tensor: 1 + z_j (S_j(x_i)-1)
+        """
         sim = self._similarity(xij, xtj).to(device)
         y = torch.mul(zj.reshape(-1, 1), (sim - 1).reshape(1, -1)) + 1
         return y
 
     # TODO: other similarity measure in CS
     def _similarity(self, xij: torch.Tensor, xtj: torch.Tensor) -> torch.Tensor:
+        """boolean similarity S_j(x_i)
+
+        Args:
+            xij (torch.Tensor): jth element of x_i
+            xtj (torch.Tensor): jth element of x_t
+
+        Returns:
+            torch.Tensor: S_j(x_i)
+        """
         ranges = xij.max() - xij.min()
         xtjs = xtj.repeat(xij.shape)
         return (abs(xtjs - xij) <= ranges * self.ratio).int()
 
     def _sz(self, t_id: int, z: torch.Tensor) -> torch.Tensor:
+        """soft similarity function s_z(x_i)
+
+        Args:
+            t_id (int): data id of target data
+            z (torch.Tensor): coordinate in the cube
+
+        Returns:
+            torch.Tensor: s_z(x_i) = \Prod (1 + z_j (S_j(x_i)-1))
+        """
         m = [
             self._sjw(z[:, i], self.x[:, i], self.x[t_id, i])
             .unsqueeze(0)
@@ -59,6 +87,15 @@ class CohortIntGrad:
         ]  # TODO: "cumprod_out_cpu" not implemented for 'Half'
 
     def _nu(self, t_id: int, z: torch.Tensor) -> torch.Tensor:
+        """soft value functions nu(z)
+
+        Args:
+            t_id (int): data id of target data
+            z (torch.Tensor): coordinate in the cube
+
+        Returns:
+            torch.Tensor: nu(z) in eq.(3)
+        """
         sz_ = self._sz(t_id, z).to(self.y.dtype)
         denom = torch.sum(sz_, dim=1).to(self.y.dtype)
         num_elem = torch.matmul(sz_, self.y)[:, 0]  # TODO: torch.autocast?
@@ -80,6 +117,14 @@ class CohortIntGrad:
 
     # TODO: scaler.scale(summand).backward()?
     def _summand(self, t_id: int):
+        """Summand in Riemann Sum of IGCS
+
+        Args:
+            t_id (int):data id of target data
+
+        Returns:
+            torch.Tensor: Summand in Riemann sum for IGCS: nabla nu (z1)
+        """
         z = (
             torch.vstack(
                 [
@@ -99,6 +144,15 @@ class CohortIntGrad:
         return z.grad
 
     def _remaining_delta(self, t_id: int, ig: torch.Tensor) -> torch.Tensor:
+        """Resiuals of Summation rule in approx of Riemann sum: difference btw (y_t - average(y_i) ) and Riemann sum
+
+        Args:
+            t_id (int): data id of target data
+            ig (torch.Tensor): IGCS values
+
+        Returns:
+            torch.Tensor: Residuals that should be zero in exact calculation
+        """
         cache = self._sz(t_id=t_id, z=torch.ones(1, self.x.shape[1]).to(device))
         residual = torch.matmul(cache, self.y) / torch.sum(cache)
         rd = torch.sum(ig) - (residual - torch.mean(self.y))
@@ -130,11 +184,28 @@ class CohortIntGrad:
         binary_vectors: np.ndarray,
         t_id: int,
     ) -> np.ndarray:
+        """wrapper function for kernel shap
+
+        Args:
+            binary_vectors (np.ndarray): coordinate in the cube restricted in corners at CS
+            t_id (int): data id of target data
+
+        Returns:
+            np.ndarray: nu(z) evaluated at the corner
+        """
         z = torch.Tensor(binary_vectors).to(device)  # .int()?
         nu = self._nu(t_id, z)
         return nu.to("cpu").detach().numpy()
 
     def cohort_kernel_shap(self, t_id: int):
+        """Cohort Shapley derived in KS library
+
+        Args:
+            t_id (int): data id of target data
+
+        Returns:
+            _type_: Cohort Shapley values by exact 2^d evaluations
+        """
         pred = partial(self._predict_ks, t_id=t_id)
         explainer = shap.KernelExplainer(pred, data=np.zeros((1, self.x.shape[1])))
         sv = explainer.shap_values(
@@ -146,6 +217,15 @@ class CohortIntGrad:
         return sv[0]
 
     def cohort_permutation_shap(self, t_id: int, max_evals: int = 10000):
+        """Cohort Shapley derived in permutation estimation
+
+        Args:
+            t_id (int): data id of target data
+            max_evals (int, optional): number of permutation approximation. Defaults to 10000.
+
+        Returns:
+            _type_: Cohort Shapley values by permutation approximation
+        """
         pred = partial(self._predict_ks, t_id=t_id)
         explainer = shap.explainers.Permutation(pred, np.zeros((1, self.x.shape[1])))
         sv = explainer(
