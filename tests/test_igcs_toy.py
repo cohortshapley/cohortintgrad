@@ -209,3 +209,21 @@ def test_nu_nondiagonal(ref, ref_t):
     nondiag_z = torch.Tensor([[0, 1], [1.0, 0.0]]).to(device)
     nu_nondiag = IG._nu(t_id=3, z=nondiag_z).to("cpu").detach().numpy()
     np.testing.assert_allclose([1 * 2 / 1, (1 + 2) / (1 + 1)], nu_nondiag, rtol=0.01)
+
+
+def test_summand_diagonal(ref, ref_t):
+    IG = csig.CohortIntGrad(ref.to(device), ref_t.to(device), ratio=0.1, n_step=500)
+    summand_diagonal = IG._summand(t_id=3).to("cpu").detach().numpy()
+
+    def partial1_nu(z):  # analytic results
+        return (z**2 - 5 * z + 4) / ((2 * z**2 - 5 * z + 4) ** 2)
+        # denominator: ((1-z)^2 + (1-z)^2 + (1-z) + 1)^2
+        # numerator: (2z^2-5z+4)(z-1)-2(z-1)((1-z)^2 + (1-z) + 2)
+
+    def partial2_nu(z):
+        return (4 - 3 * z) / ((2 * z**2 - 5 * z + 4) ** 2)
+
+    analytic_result = np.vstack(
+        [np.array([partial1_nu(i / 500), partial2_nu(i / 500)]) for i in range(500 + 1)]
+    )
+    np.testing.assert_allclose(analytic_result, summand_diagonal, rtol=0.01)
