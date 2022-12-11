@@ -43,6 +43,15 @@ def test_igcs_single(ref, ref_t):
     )
 
 
+def test_y_shape_cast(ref):
+    ref_t = torch.Tensor([[0], [1], [1], [2]])
+    IG = csig.CohortIntGrad(ref.to(device), ref_t.to(device), ratio=0.1, n_step=500)
+    igcs_single0 = IG.igcs_single(0)
+    np.testing.assert_allclose(
+        [-0.5, -0.5], igcs_single0.to("cpu").detach().numpy(), rtol=0.01
+    )
+
+
 def test_igcs_single_2(ref, ref_t):  # the case where IGCS and CS dont match
     IG = csig.CohortIntGrad(ref.to(device), ref_t.to(device), ratio=0.1, n_step=500)
     igcs_single3 = IG.igcs_single(3)
