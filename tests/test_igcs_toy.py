@@ -9,19 +9,19 @@ import cohortintgrad as csig
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def ref():
     x = torch.Tensor([[0, 0], [0, 1], [1, 0], [1, 2]])
     return x
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def ref_t():
     y = torch.Tensor([0, 1, 1, 2])
     return y
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def diagonal():
     n_step = 5
     z = torch.vstack(
