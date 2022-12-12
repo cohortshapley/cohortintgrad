@@ -224,3 +224,81 @@ def test_straight_deletion_ep(model_data_setup, target_data_id):
         ep,
         rtol=0.01,
     )
+
+
+def test_insertion_pt_linear_regression(model_data_setup, target_data_id):
+    x, y, model, coeff = model_data_setup
+    id_calc = csig.insertion_deletion.Insertion_Deletion_ABC_calc(
+        target=x[target_data_id],
+        reference=np.zeros(x.shape[1:]),
+        feat_attr=coeff,
+        pred_function=model.predict,
+        mode="insertion",
+        torch_cast=False,
+    )
+    pred_syn_data = list()
+    tmp_pred = model.predict(np.zeros(x.shape[1:]).reshape(1, -1)).item()
+    pred_syn_data.append(tmp_pred)
+    for j in np.argsort(-coeff):
+        tmp_pred += coeff[j] * x[target_data_id, j]  # explicitly linear regression
+        pred_syn_data.append(tmp_pred)
+    pt, abc = id_calc.calc_abc()
+    np.testing.assert_allclose(pred_syn_data, pt)
+
+
+def test_deletion_pt_linear_regression(model_data_setup, target_data_id):
+    x, y, model, coeff = model_data_setup
+    id_calc = csig.insertion_deletion.Insertion_Deletion_ABC_calc(
+        target=x[target_data_id],
+        reference=np.zeros(x.shape[1:]),
+        feat_attr=coeff,
+        pred_function=model.predict,
+        mode="deletion",
+        torch_cast=False,
+    )
+    pred_syn_data = list()
+    tmp_pred = model.predict(x)[target_data_id]
+    pred_syn_data.append(tmp_pred)
+    for j in np.argsort(-coeff):
+        tmp_pred -= coeff[j] * x[target_data_id, j]  # explicitly linear regression
+        pred_syn_data.append(tmp_pred)
+    pt, abc = id_calc.calc_abc()
+    np.testing.assert_allclose(pred_syn_data, pt)
+
+
+def test_insertion_abc(model_data_setup, target_data_id):
+    x, y, model, coeff = model_data_setup
+    id_calc = csig.insertion_deletion.Insertion_Deletion_ABC_calc(
+        target=x[target_data_id],
+        reference=np.zeros(x.shape[1:]),
+        feat_attr=coeff,
+        pred_function=model.predict,
+        mode="insertion",
+        torch_cast=False,
+    )
+    stc = id_calc.straight_points()
+    pt, abc = id_calc.calc_abc()
+    trepoid_cum = (
+        np.sum([((pt - stc)[i] + (pt - stc)[i + 1]) / 2 for i in range(x.shape[1])])
+        / x.shape[1]
+    )  # another derivation of ABC
+    np.testing.assert_allclose(trepoid_cum, abc)
+
+
+def test_deletion_abc(model_data_setup, target_data_id):
+    x, y, model, coeff = model_data_setup
+    id_calc = csig.insertion_deletion.Insertion_Deletion_ABC_calc(
+        target=x[target_data_id],
+        reference=np.zeros(x.shape[1:]),
+        feat_attr=coeff,
+        pred_function=model.predict,
+        mode="deletion",
+        torch_cast=False,
+    )
+    stc = id_calc.straight_points()
+    pt, abc = id_calc.calc_abc()
+    trepoid_cum = (
+        np.sum([((stc - pt)[i] + (stc - pt)[i + 1]) / 2 for i in range(x.shape[1])])
+        / x.shape[1]
+    )  # deletion counts the area below the straight line in our convention
+    np.testing.assert_allclose(trepoid_cum, abc)

@@ -25,7 +25,7 @@ class Insertion_Deletion_ABC_calc:
             feat_attr (np.ndarray): feature attribution that sorts features
             pred_function (Any): model prediction function that cast synthesized np.ndarray to outcome
             mode (Literal[&quot;insertion&quot;, &quot;deletion&quot;], optional): test mode. Defaults to "insertion".
-            torch_cast (bool): whether cast the synthetic data to torch.Tensor. Defaults to False.
+            torch_cast (bool): whether cast the synthetic data to torch.Tensor to be evaluated in pred_function. Defaults to False.
         """
         self.feat_attr = feat_attr
         self.pred_method = pred_function
