@@ -69,7 +69,7 @@ class Insertion_Deletion_ABC_calc:
         """execution of calculation
 
         Returns:
-            Tuple[np.ndarray, float, float]: plots of outcome, AUC, ABC
+            Tuple[np.ndarray, float]: plots of outcome, ABC
         """
         points = self.pred_method(self.synthetic_data_generator())
         auc = (np.sum(points) - (points[0] + points[-1]) / 2) / (
