@@ -25,7 +25,17 @@ def model_data_setup():
 
     lr = LinearRegression()
     lr.fit(train_x, train_y)
-    return test_x, test_y, lr, lr.coef_
+    return (
+        test_x,
+        test_y,
+        lr,
+        lr.coef_,
+    )  # arbitrary array (#elem=#feat) can be used as feat importance
+
+
+@pytest.fixture(scope="module")
+def target_data_id():
+    return 0
 
 
 class simple_model(torch.nn.Module):
@@ -50,11 +60,11 @@ def test_wrap_torch_model(model_data_setup):
     assert type(wf) == np.ndarray
 
 
-def test_mode_assertion(model_data_setup):
+def test_mode_assertion(model_data_setup, target_data_id):
     x, y, model, coeff = model_data_setup
     with pytest.raises(AssertionError):
         _ = csig.insertion_deletion.Insertion_Deletion_ABC_calc(
-            target=x[0],
+            target=x[target_data_id],
             reference=np.zeros(x.shape[1:]),
             feat_attr=coeff,
             pred_function=model.predict,
@@ -63,10 +73,10 @@ def test_mode_assertion(model_data_setup):
         )
 
 
-def test_syn_data_insertion(model_data_setup):
+def test_syn_data_insertion(model_data_setup, target_data_id):
     x, y, model, coeff = model_data_setup
     id_calc = csig.insertion_deletion.Insertion_Deletion_ABC_calc(
-        target=x[0],
+        target=x[target_data_id],
         reference=np.zeros(x.shape[1:]),
         feat_attr=coeff,
         pred_function=model.predict,
@@ -77,32 +87,34 @@ def test_syn_data_insertion(model_data_setup):
     for i, j in enumerate(
         np.argsort(-coeff)
     ):  # in insertion, synthesized data are input to reference in ordered by feat attr (from large positive to large negative)
-        syn_data[i + 1 :, j] += x[0, j]
+        syn_data[i + 1 :, j] += x[target_data_id, j]
     np.testing.assert_allclose(syn_data, id_calc.synthetic_data_generator(), rtol=0.01)
 
 
-def test_syn_data_deletion(model_data_setup):
+def test_syn_data_deletion(model_data_setup, target_data_id):
     x, y, model, coeff = model_data_setup
     id_calc = csig.insertion_deletion.Insertion_Deletion_ABC_calc(
-        target=x[0],
+        target=x[target_data_id],
         reference=np.zeros(x.shape[1:]),
         feat_attr=coeff,
         pred_function=model.predict,
         mode="deletion",
         torch_cast=False,
     )
-    syn_data = np.repeat(x[0].reshape(1, x.shape[1]), x.shape[1] + 1, axis=0)
+    syn_data = np.repeat(
+        x[target_data_id].reshape(1, x.shape[1]), x.shape[1] + 1, axis=0
+    )
     for i, j in enumerate(
         np.argsort(-coeff)
     ):  # in deletion, synthesized data are deleted to input in ordered by feat attr (from large positive to large negative)
-        syn_data[i + 1 :, j] -= x[0, j]
+        syn_data[i + 1 :, j] -= x[target_data_id, j]
     np.testing.assert_allclose(syn_data, id_calc.synthetic_data_generator(), rtol=0.01)
 
 
-def test_typecast_syn_data(model_data_setup):
+def test_typecast_syn_data(model_data_setup, target_data_id):
     x, y, model, coeff = model_data_setup
     id_calc = csig.insertion_deletion.Insertion_Deletion_ABC_calc(
-        target=x[0],
+        target=x[target_data_id],
         reference=np.zeros(x.shape[1:]),
         feat_attr=coeff,
         pred_function=model.predict,
@@ -110,3 +122,105 @@ def test_typecast_syn_data(model_data_setup):
         torch_cast=True,
     )
     assert type(id_calc.synthetic_data_generator()) == torch.Tensor
+
+
+def test_straight_insertion(model_data_setup, target_data_id):
+    x, y, model, coeff = model_data_setup
+    id_calc = csig.insertion_deletion.Insertion_Deletion_ABC_calc(
+        target=x[target_data_id],
+        reference=np.zeros(x.shape[1:]),
+        feat_attr=coeff,
+        pred_function=model.predict,
+        mode="insertion",
+        torch_cast=False,
+    )
+    stc = (
+        id_calc.straight_points()
+    )  # y coordinate of the straight line from ref to target
+    differentiate = [
+        stc[i + 1] - stc[i] for i in range(x.shape[1])
+    ]  # then the differences between neighbor are constant
+    ones = (
+        np.ones(x.shape[1])
+        * (
+            model.predict(x)[target_data_id]
+            - model.predict(np.zeros(x.shape[1:]).reshape(1, -1))
+        )
+        / x.shape[1]
+    )
+    np.testing.assert_allclose(ones, differentiate, rtol=0.01)
+
+
+def test_straight_insertion_ep(model_data_setup, target_data_id):
+    x, y, model, coeff = model_data_setup
+    id_calc = csig.insertion_deletion.Insertion_Deletion_ABC_calc(
+        target=x[target_data_id],
+        reference=np.zeros(x.shape[1:]),
+        feat_attr=coeff,
+        pred_function=model.predict,
+        mode="insertion",
+        torch_cast=False,
+    )
+    stc = (
+        id_calc.straight_points()
+    )  # y coordinate of the straight line from ref to target
+    ep = [stc[0], stc[-1]]  # end points are y value of ref and target
+    np.testing.assert_allclose(
+        [
+            model.predict(np.zeros(x.shape[1:]).reshape(1, -1)).item(),
+            model.predict(x)[target_data_id],
+        ],
+        ep,
+        rtol=0.01,
+    )
+
+
+def test_straight_deletion(model_data_setup, target_data_id):
+    x, y, model, coeff = model_data_setup
+    id_calc = csig.insertion_deletion.Insertion_Deletion_ABC_calc(
+        target=x[target_data_id],
+        reference=np.zeros(x.shape[1:]),
+        feat_attr=coeff,
+        pred_function=model.predict,
+        mode="deletion",
+        torch_cast=False,
+    )
+    stc = (
+        id_calc.straight_points()
+    )  # y coordinate of the straight line from ref to target
+    differentiate = [
+        stc[i + 1] - stc[i] for i in range(x.shape[1])
+    ]  # then the differences between neighbor are constant
+    ones = (
+        np.ones(x.shape[1])
+        * (
+            model.predict(np.zeros(x.shape[1:]).reshape(1, -1))
+            - model.predict(x)[target_data_id]
+        )
+        / x.shape[1]
+    )
+    np.testing.assert_allclose(ones, differentiate, rtol=0.01)
+
+
+def test_straight_deletion_ep(model_data_setup, target_data_id):
+    x, y, model, coeff = model_data_setup
+    id_calc = csig.insertion_deletion.Insertion_Deletion_ABC_calc(
+        target=x[target_data_id],
+        reference=np.zeros(x.shape[1:]),
+        feat_attr=coeff,
+        pred_function=model.predict,
+        mode="deletion",
+        torch_cast=False,
+    )
+    stc = (
+        id_calc.straight_points()
+    )  # y coordinate of the straight line from target to ref
+    ep = [stc[0], stc[-1]]  # end points are y value of target and ref
+    np.testing.assert_allclose(
+        [
+            model.predict(x)[target_data_id],
+            model.predict(np.zeros(x.shape[1:]).reshape(1, -1)).item(),
+        ],
+        ep,
+        rtol=0.01,
+    )
