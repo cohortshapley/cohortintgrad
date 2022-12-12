@@ -25,7 +25,7 @@ class CohortIntGrad:
             ratio (float, optional): threshold of similarity. Defaults to 0.1.
             n_step (int, optional): number of steps of path integral. Defaults to 500.
         """
-        x, y = torch.as_tensor(x), torch.as_tensor(y)
+        x, y = torch.as_tensor(x).to(device), torch.as_tensor(y).to(device)
         self.x_shape = x.shape[1:]
         self.x = x.reshape((x.shape[0], -1))
         if len(y.shape) == 1:
