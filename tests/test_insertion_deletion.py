@@ -25,7 +25,7 @@ def model_data_setup():
 
     lr = LinearRegression()
     lr.fit(train_x, train_y)
-    return test_x, test_y, lr
+    return test_x, test_y, lr, lr.coef_
 
 
 class simple_model(torch.nn.Module):
@@ -51,13 +51,62 @@ def test_wrap_torch_model(model_data_setup):
 
 
 def test_mode_assertion(model_data_setup):
-    x, y, model = model_data_setup
+    x, y, model, coeff = model_data_setup
     with pytest.raises(AssertionError):
         _ = csig.insertion_deletion.Insertion_Deletion_ABC_calc(
             target=x[0],
             reference=np.zeros(x.shape[1:]),
-            feat_attr=model.coef_,
+            feat_attr=coeff,
             pred_function=model.predict,
             mode="hoge",
             torch_cast=False,
         )
+
+
+def test_syn_data_insertion(model_data_setup):
+    x, y, model, coeff = model_data_setup
+    id_calc = csig.insertion_deletion.Insertion_Deletion_ABC_calc(
+        target=x[0],
+        reference=np.zeros(x.shape[1:]),
+        feat_attr=coeff,
+        pred_function=model.predict,
+        mode="insertion",
+        torch_cast=False,
+    )
+    syn_data = np.zeros((x.shape[1] + 1, x.shape[1]))
+    for i, j in enumerate(
+        np.argsort(-coeff)
+    ):  # in insertion, synthesized data are input to reference in ordered by feat attr (from large positive to large negative)
+        syn_data[i + 1 :, j] += x[0, j]
+    np.testing.assert_allclose(syn_data, id_calc.synthetic_data_generator(), rtol=0.01)
+
+
+def test_syn_data_deletion(model_data_setup):
+    x, y, model, coeff = model_data_setup
+    id_calc = csig.insertion_deletion.Insertion_Deletion_ABC_calc(
+        target=x[0],
+        reference=np.zeros(x.shape[1:]),
+        feat_attr=coeff,
+        pred_function=model.predict,
+        mode="deletion",
+        torch_cast=False,
+    )
+    syn_data = np.repeat(x[0].reshape(1, x.shape[1]), x.shape[1] + 1, axis=0)
+    for i, j in enumerate(
+        np.argsort(-coeff)
+    ):  # in deletion, synthesized data are deleted to input in ordered by feat attr (from large positive to large negative)
+        syn_data[i + 1 :, j] -= x[0, j]
+    np.testing.assert_allclose(syn_data, id_calc.synthetic_data_generator(), rtol=0.01)
+
+
+def test_typecast_syn_data(model_data_setup):
+    x, y, model, coeff = model_data_setup
+    id_calc = csig.insertion_deletion.Insertion_Deletion_ABC_calc(
+        target=x[0],
+        reference=np.zeros(x.shape[1:]),
+        feat_attr=coeff,
+        pred_function=model.predict,
+        mode="insertion",
+        torch_cast=True,
+    )
+    assert type(id_calc.synthetic_data_generator()) == torch.Tensor
