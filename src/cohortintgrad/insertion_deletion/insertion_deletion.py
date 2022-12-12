@@ -29,6 +29,10 @@ class Insertion_Deletion_ABC_calc:
         """
         self.feat_attr = feat_attr
         self.pred_method = pred_function
+        assert mode in [
+            "insertion",
+            "deletion",
+        ], f'mode must be "insertion" or "deletion", but input {mode}'
         self.mode = mode
         self.cast = torch_cast
         if self.mode == "deletion":
@@ -37,8 +41,6 @@ class Insertion_Deletion_ABC_calc:
         elif self.mode == "insertion":
             self.start = reference
             self.goal = target
-        else:
-            pass  # TODO: raiseerror?
 
     def synthetic_data_generator(self) -> Union[np.ndarray, torch.Tensor]:  # len=d+1
         """Generated the datapoints evaluated in the insertion/deletion process
@@ -105,4 +107,6 @@ def wrap_torch_model(x: np.ndarray, model: torch.nn.Module):
     Returns:
         map from synthesized data to model output
     """
-    return model.predict(torch.Tensor(x).to(device)).to("cpu").detach().numpy()
+    return (
+        model.predict(torch.Tensor(x).to(device)).to("cpu").detach().numpy()
+    )  # TODO: forward or __call__
