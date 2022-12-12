@@ -39,3 +39,4 @@ multirun/
 htmlcov/
 .coverage
 coverage.xml
+.ipynb_checkpoints/
