@@ -78,7 +78,7 @@ class Insertion_Deletion_ABC_calc:
         abc = auc - (points[-1] + points[0]) / 2
         if self.mode == "deletion":
             abc = -abc
-        return points, auc, abc
+        return points, abc
 
     def straight_points(self) -> np.ndarray:  # len=d+1
         """give the y-coordinates of the straight line that connects the start point and the end point
