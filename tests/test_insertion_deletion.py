@@ -302,3 +302,83 @@ def test_deletion_abc(model_data_setup, target_data_id):
         / x.shape[1]
     )  # deletion counts the area below the straight line in our convention
     np.testing.assert_allclose(trepoid_cum, abc)
+
+
+def test_observational_insertion_abc_coordinates(model_data_setup, target_data_id):
+    x, y, model, coeff = model_data_setup
+    coeff_all = np.repeat(coeff.reshape(1, x.shape[1]), x.shape[0], axis=0)
+    id_calc = csig.observational_insertion_deletion_wrapper.Loaded_Feat_Attr(
+        x, y, ratio=0.1, feat_attr=coeff_all
+    )
+    pt, abc = id_calc.insertion_deletion_test(t_id=target_data_id, mode="insertion")
+
+    z = np.zeros((x.shape[1] + 1, x.shape[1]))
+    for i in range(x.shape[1]):
+        z[i + 1 :, np.argsort(-coeff)[i]] += 1
+    zz = torch.Tensor(z)
+    similar_map = (
+        id_calc._sz(t_id=0, z=zz.to(device)).to("cpu").detach().numpy()
+    )  # data id whose data values are similar at each coordinate z
+    assigned_val = [
+        np.average(y[np.where(similar_map[i] == 1)[0]]) for i in range(x.shape[1] + 1)
+    ]  # average(y) of similar data: assigned values in observational ABC
+    np.testing.assert_allclose(assigned_val, pt)
+
+
+def test_observational_deletion_abc_coordinates(model_data_setup, target_data_id):
+    x, y, model, coeff = model_data_setup
+    coeff_all = np.repeat(coeff.reshape(1, x.shape[1]), x.shape[0], axis=0)
+    id_calc = csig.observational_insertion_deletion_wrapper.Loaded_Feat_Attr(
+        x, y, ratio=0.1, feat_attr=coeff_all
+    )
+    pt, abc = id_calc.insertion_deletion_test(t_id=target_data_id, mode="deletion")
+
+    z = np.ones((x.shape[1] + 1, x.shape[1]))
+    for i in range(x.shape[1]):
+        z[i + 1 :, np.argsort(-coeff)[i]] -= 1
+    zz = torch.Tensor(z)
+    similar_map = (
+        id_calc._sz(t_id=0, z=zz.to(device)).to("cpu").detach().numpy()
+    )  # data id whose data values are similar at each coordinate z
+    assigned_val = [
+        np.average(y[np.where(similar_map[i] == 1)[0]]) for i in range(x.shape[1] + 1)
+    ]  # average(y) of similar data: assigned values in observational ABC
+    np.testing.assert_allclose(assigned_val, pt)
+
+
+def test_observational_insertion_abc(model_data_setup, target_data_id):
+    x, y, model, coeff = model_data_setup
+    coeff_all = np.repeat(coeff.reshape(1, x.shape[1]), x.shape[0], axis=0)
+    id_calc = csig.observational_insertion_deletion_wrapper.Loaded_Feat_Attr(
+        x, y, ratio=0.1, feat_attr=coeff_all
+    )
+    pt, abc = id_calc.insertion_deletion_test(t_id=target_data_id, mode="insertion")
+    stc = [(pt[-1] - pt[0]) / x.shape[1] * i + pt[0] for i in range(x.shape[1] + 1)]
+    trepoid_cum = (
+        np.sum([((pt - stc)[i] + (pt - stc)[i + 1]) / 2 for i in range(x.shape[1])])
+        / x.shape[1]
+    )  # same derivation in interventional ABC
+    np.testing.assert_allclose(trepoid_cum, abc)
+
+
+def test_observational_deletion_abc(model_data_setup, target_data_id):
+    x, y, model, coeff = model_data_setup
+    coeff_all = np.repeat(coeff.reshape(1, x.shape[1]), x.shape[0], axis=0)
+    id_calc = csig.observational_insertion_deletion_wrapper.Loaded_Feat_Attr(
+        x, y, ratio=0.1, feat_attr=coeff_all
+    )
+    pt, abc = id_calc.insertion_deletion_test(t_id=target_data_id, mode="deletion")
+    stc = [(pt[-1] - pt[0]) / x.shape[1] * i + pt[0] for i in range(x.shape[1] + 1)]
+    trepoid_cum = (
+        np.sum([((stc - pt)[i] + (stc - pt)[i + 1]) / 2 for i in range(x.shape[1])])
+        / x.shape[1]
+    )
+    np.testing.assert_allclose(trepoid_cum, abc)
+
+
+def test_observational_abc_invalid_data_shape(model_data_setup, target_data_id):
+    x, y, model, coeff = model_data_setup
+    with pytest.raises(AssertionError):
+        _ = csig.observational_insertion_deletion_wrapper.Loaded_Feat_Attr(
+            x, y, ratio=0.1, feat_attr=np.zeros((1, 1))
+        )
