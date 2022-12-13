@@ -15,9 +15,9 @@ class Loaded_Feat_Attr(CohortIntGrad):
         self,
         x: torch.Tensor,
         y: torch.Tensor,
+        feat_attr: np.ndarray,
         ratio: float = 0.1,
         # n_step: int = 500,
-        feat_attr: np.ndarray = np.zeros((1, 1)),
     ):
         """The wrapper class to evaluate XAI methods in observational way
         See in Section 5.1.2 of our paper (arXiv:2211.08414 [cs.LG]) in detail.
