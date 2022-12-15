@@ -15,7 +15,7 @@ See the [paper](https://arxiv.org/abs/2211.08414):
 And details of the cohort shapley for the [paper](https://arxiv.org/abs/1911.00467):
 > Mase, M., Owen, A. B., & Seiler, B. (2019). Explaining black box decisions by Shapley cohort refinement. arXiv preprint arXiv:1911.00467.
 
-This library also includes the Insertion and Deletion ABC defined in the our [paper](https://arxiv.org/abs/2205.12423):
+This library and the example also include the Insertion and Deletion ABC (Area Between the Curves) defined in the [paper](https://arxiv.org/abs/2205.12423):
 > Hama, N., Mase, M., and Owen, A. B. (2022). Deletion and insertion tests in regression models. arXiv preprint arXiv:2205.12423
 
 # Install
