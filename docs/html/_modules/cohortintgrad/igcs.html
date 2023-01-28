@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>cohortintgrad.igcs &mdash; CohortIntGrad  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> CohortIntGrad
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../cohortintgrad.html">cohortintgrad package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">CohortIntGrad</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">cohortintgrad.igcs</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for cohortintgrad.igcs</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">shap</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">tqdm</span>
+
+<span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span>
+
+
+<div class="viewcode-block" id="CohortIntGrad"><a class="viewcode-back" href="../../cohortintgrad.html#cohortintgrad.igcs.CohortIntGrad">[docs]</a><span class="k">class</span> <span class="nc">CohortIntGrad</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">x</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+        <span class="n">y</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>  <span class="c1"># TODO: dataloader as input</span>
+        <span class="n">ratio</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+        <span class="n">n_step</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">500</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;the instance of calculator of Cohort Shapley Integrated Gradients</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x (Union[torch.Tensor, np.ndarray]): input data, 1st axis is data in cohort</span>
+<span class="sd">            y (Union[torch.Tensor, np.ndarray]): outcome of data</span>
+<span class="sd">            ratio (float, optional): threshold of similarity. Defaults to 0.1.</span>
+<span class="sd">            n_step (int, optional): number of steps of path integral. Defaults to 500.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">y</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">x_shape</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">y</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ratio</span> <span class="o">=</span> <span class="n">ratio</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_step</span> <span class="o">=</span> <span class="n">n_step</span>
+
+    <span class="k">def</span> <span class="nf">_sjw</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">zj</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">xij</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">xtj</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;jth element of multiplication in s_z(x_i)</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            zj (torch.Tensor): jth elements of z</span>
+<span class="sd">            xij (torch.Tensor): jth element of x_i</span>
+<span class="sd">            xtj (torch.Tensor): jth element of x_t</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            torch.Tensor: 1 + z_j (S_j(x_i)-1): shape is (num_feat, num_cohort)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">sim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_similarity</span><span class="p">(</span><span class="n">xij</span><span class="p">,</span> <span class="n">xtj</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mul</span><span class="p">(</span><span class="n">zj</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="n">sim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">y</span>
+
+    <span class="c1"># TODO: other similarity measure in CS</span>
+    <span class="k">def</span> <span class="nf">_similarity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xij</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">xtj</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;boolean similarity S_j(x_i)</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            xij (torch.Tensor): jth element of x_i in the cohort</span>
+<span class="sd">            xtj (torch.Tensor): jth element of x_t</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            torch.Tensor: S_j(x_i)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ranges</span> <span class="o">=</span> <span class="n">xij</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">-</span> <span class="n">xij</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+        <span class="n">xtjs</span> <span class="o">=</span> <span class="n">xtj</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">xij</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">xtjs</span> <span class="o">-</span> <span class="n">xij</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">ranges</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">ratio</span><span class="p">)</span><span class="o">.</span><span class="n">int</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_sz</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;soft similarity function s_z(x_i)</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t_id (int): data id of target data</span>
+<span class="sd">            z (torch.Tensor): coordinate in the cube</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            torch.Tensor: s_z(x_i) = Prod (1 + z_j (S_j(x_i)-1))</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_sjw</span><span class="p">(</span><span class="n">z</span><span class="p">[:,</span> <span class="n">i</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">[:,</span> <span class="n">i</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="n">t_id</span><span class="p">,</span> <span class="n">i</span><span class="p">])</span>
+            <span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>  <span class="c1">#</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="p">]</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cumprod</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">m</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)[</span>
+            <span class="o">-</span><span class="mi">1</span>
+        <span class="p">]</span>  <span class="c1"># TODO: &quot;cumprod_out_cpu&quot; not implemented for &#39;Half&#39;</span>
+
+    <span class="k">def</span> <span class="nf">_nu</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;soft value functions nu(z)</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t_id (int): data id of target data</span>
+<span class="sd">            z (torch.Tensor): coordinate in the cube</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            torch.Tensor: nu(z) in eq.(3)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">sz_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sz</span><span class="p">(</span><span class="n">t_id</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">denom</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">sz_</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">num_elem</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">sz_</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">)[:,</span> <span class="mi">0</span><span class="p">]</span>  <span class="c1"># TODO: torch.autocast?</span>
+        <span class="k">return</span> <span class="n">num_elem</span> <span class="o">/</span> <span class="n">denom</span>
+
+<div class="viewcode-block" id="CohortIntGrad.igcs_single"><a class="viewcode-back" href="../../cohortintgrad.html#cohortintgrad.igcs.CohortIntGrad.igcs_single">[docs]</a>    <span class="k">def</span> <span class="nf">igcs_single</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;CSIG for single data</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t_id (int): data id of target data</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            torch.Tensor: CSIG value of target data</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">summand</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_summand</span><span class="p">(</span><span class="n">t_id</span><span class="p">)</span>
+        <span class="n">ig</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">summand</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">ig</span> <span class="o">=</span> <span class="n">ig</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_shape</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ig</span></div>
+
+    <span class="c1"># TODO: scaler.scale(summand).backward()?</span>
+    <span class="k">def</span> <span class="nf">_summand</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Summand in Riemann Sum of IGCS</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t_id (int):data id of target data</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            torch.Tensor: Summand in Riemann sum for IGCS: nabla nu (z1)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span> <span class="o">+</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_step</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_step</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+            <span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">requires_grad_</span><span class="p">()</span>
+        <span class="p">)</span>
+        <span class="n">summand</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nu</span><span class="p">(</span><span class="n">t_id</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
+        <span class="n">summand</span><span class="o">.</span><span class="n">backward</span><span class="p">(</span>
+            <span class="n">gradient</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_step</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">),</span>
+            <span class="n">retain_graph</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">inputs</span><span class="o">=</span><span class="n">z</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">z</span><span class="o">.</span><span class="n">grad</span>
+
+    <span class="k">def</span> <span class="nf">_remaining_delta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">ig</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Resiuals of Summation rule in approx of Riemann sum: difference btw (y_t - average(y_i) ) and Riemann sum</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t_id (int): data id of target data</span>
+<span class="sd">            ig (torch.Tensor): IGCS values</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            torch.Tensor: Residuals that should be zero in exact calculation</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cache</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sz</span><span class="p">(</span><span class="n">t_id</span><span class="o">=</span><span class="n">t_id</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">))</span>
+        <span class="n">residual</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">cache</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">)</span> <span class="o">/</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">cache</span><span class="p">)</span>
+        <span class="n">rd</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">ig</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="n">residual</span> <span class="o">-</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">rd</span>
+
+<div class="viewcode-block" id="CohortIntGrad.igcs_stack"><a class="viewcode-back" href="../../cohortintgrad.html#cohortintgrad.igcs.CohortIntGrad.igcs_stack">[docs]</a>    <span class="k">def</span> <span class="nf">igcs_stack</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stack_target</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;CSIG for multiple data</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            stack_target (list): list of data in for target data</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Tuple[torch.Tensor, torch.Tensor]: CSIG for target data, residue of Riemann sum</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">stack</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">igcs_single</span><span class="p">(</span><span class="n">t_id</span><span class="p">)</span> <span class="k">for</span> <span class="n">t_id</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="o">.</span><span class="n">tqdm</span><span class="p">(</span><span class="n">stack_target</span><span class="p">)</span>
+        <span class="p">]</span>  <span class="c1"># TODO: avoid tqdm</span>
+        <span class="n">ig_all</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">ig</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">ig</span> <span class="ow">in</span> <span class="n">stack</span><span class="p">]</span>
+        <span class="p">)</span>  <span class="c1"># TODO: check difference of api in CPU/cuda</span>
+        <span class="n">rd_all</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
+            <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_remaining_delta</span><span class="p">(</span><span class="n">t_id</span><span class="p">,</span> <span class="n">ig</span><span class="p">)</span> <span class="k">for</span> <span class="p">(</span><span class="n">t_id</span><span class="p">,</span> <span class="n">ig</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">stack_target</span><span class="p">,</span> <span class="n">stack</span><span class="p">)]</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">ig_all</span><span class="p">,</span> <span class="n">rd_all</span></div>
+
+    <span class="k">def</span> <span class="nf">_predict_ks</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">binary_vectors</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">t_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;wrapper function for kernel shap</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            binary_vectors (np.ndarray): coordinate in the cube restricted in corners at CS</span>
+<span class="sd">            t_id (int): data id of target data</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: nu(z) evaluated at the corner</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">binary_vectors</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>  <span class="c1"># .int()?</span>
+        <span class="n">nu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nu</span><span class="p">(</span><span class="n">t_id</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">nu</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;cpu&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+
+<div class="viewcode-block" id="CohortIntGrad.cohort_kernel_shap"><a class="viewcode-back" href="../../cohortintgrad.html#cohortintgrad.igcs.CohortIntGrad.cohort_kernel_shap">[docs]</a>    <span class="k">def</span> <span class="nf">cohort_kernel_shap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Cohort Shapley derived in KS library</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t_id (int): data id of target data</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: Cohort Shapley values by exact 2^d evaluations</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">pred</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_predict_ks</span><span class="p">,</span> <span class="n">t_id</span><span class="o">=</span><span class="n">t_id</span><span class="p">)</span>
+        <span class="n">explainer</span> <span class="o">=</span> <span class="n">shap</span><span class="o">.</span><span class="n">KernelExplainer</span><span class="p">(</span><span class="n">pred</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])))</span>
+        <span class="n">sv</span> <span class="o">=</span> <span class="n">explainer</span><span class="o">.</span><span class="n">shap_values</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])),</span>
+            <span class="n">nsamples</span><span class="o">=</span><span class="mi">2</span> <span class="o">**</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="n">l1_reg</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;num_features(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
+            <span class="n">silent</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">sv</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="CohortIntGrad.cohort_permutation_shap"><a class="viewcode-back" href="../../cohortintgrad.html#cohortintgrad.igcs.CohortIntGrad.cohort_permutation_shap">[docs]</a>    <span class="k">def</span> <span class="nf">cohort_permutation_shap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">max_evals</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10000</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Cohort Shapley derived in permutation estimation</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t_id (int): data id of target data</span>
+<span class="sd">            max_evals (int, optional): number of permutation approximation. Defaults to 10000.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: Cohort Shapley values by permutation approximation</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">pred</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_predict_ks</span><span class="p">,</span> <span class="n">t_id</span><span class="o">=</span><span class="n">t_id</span><span class="p">)</span>
+        <span class="n">explainer</span> <span class="o">=</span> <span class="n">shap</span><span class="o">.</span><span class="n">explainers</span><span class="o">.</span><span class="n">Permutation</span><span class="p">(</span><span class="n">pred</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])))</span>
+        <span class="n">sv</span> <span class="o">=</span> <span class="n">explainer</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])),</span>
+            <span class="n">max_evals</span><span class="o">=</span><span class="n">max_evals</span><span class="p">,</span>
+            <span class="c1"># batch_size=bs,</span>
+            <span class="n">silent</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">sv</span><span class="o">.</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="CohortIntGrad.num_sim"><a class="viewcode-back" href="../../cohortintgrad.html#cohortintgrad.igcs.CohortIntGrad.num_sim">[docs]</a>    <span class="k">def</span> <span class="nf">num_sim</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t_id</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Rarity for each feature of the target data</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t_id (int): target data id</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            torch.Tensor: number of similar data in cohort for each feature</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">sz</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sz</span><span class="p">(</span><span class="n">t_id</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">sz</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">int</span><span class="p">()</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x_shape</span><span class="p">)</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Naofumi_Hama.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
