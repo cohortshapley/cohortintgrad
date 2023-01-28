@@ -197,7 +197,7 @@ class CohortIntGrad:
         nu = self._nu(t_id, z)
         return nu.to("cpu").detach().numpy()
 
-    def cohort_kernel_shap(self, t_id: int):
+    def cohort_kernel_shap(self, t_id: int) -> np.ndarray:
         """Cohort Shapley derived in KS library
 
         Args:
@@ -216,7 +216,7 @@ class CohortIntGrad:
         )
         return sv[0]
 
-    def cohort_permutation_shap(self, t_id: int, max_evals: int = 10000):
+    def cohort_permutation_shap(self, t_id: int, max_evals: int = 10000) -> np.ndarray:
         """Cohort Shapley derived in permutation estimation
 
         Args:
