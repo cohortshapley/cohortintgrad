@@ -20,8 +20,8 @@ class CohortIntGrad:
         """the instance of calculator of Cohort Shapley Integrated Gradients
 
         Args:
-            x (torch.Tensor): input data, 1st axis is data in cohort
-            y (torch.Tensor): outcome of data
+            x (Union[torch.Tensor, np.ndarray]): input data, 1st axis is data in cohort
+            y (Union[torch.Tensor, np.ndarray]): outcome of data
             ratio (float, optional): threshold of similarity. Defaults to 0.1.
             n_step (int, optional): number of steps of path integral. Defaults to 500.
         """
@@ -204,7 +204,7 @@ class CohortIntGrad:
             t_id (int): data id of target data
 
         Returns:
-            _type_: Cohort Shapley values by exact 2^d evaluations
+            np.ndarray: Cohort Shapley values by exact 2^d evaluations
         """
         pred = partial(self._predict_ks, t_id=t_id)
         explainer = shap.KernelExplainer(pred, data=np.zeros((1, self.x.shape[1])))
@@ -224,7 +224,7 @@ class CohortIntGrad:
             max_evals (int, optional): number of permutation approximation. Defaults to 10000.
 
         Returns:
-            _type_: Cohort Shapley values by permutation approximation
+            np.ndarray: Cohort Shapley values by permutation approximation
         """
         pred = partial(self._predict_ks, t_id=t_id)
         explainer = shap.explainers.Permutation(pred, np.zeros((1, self.x.shape[1])))
